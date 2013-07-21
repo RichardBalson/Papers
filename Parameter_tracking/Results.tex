@@ -1,0 +1,165 @@
+\section{Results}
+
+In the results section the estimation of the Wendling model is considered. Initially, the model simulations used as observations for the estimation procedure are considered. In particular, it is shown that the model is capable of replicating six different types of neural activity. Following this the estimation of the model under numerous conditions is considered. 
+
+\subsection{Model Simulation}
+
+\red{Model simulation..}
+The Wendling model is capable of replicating six types of neural activity often observed in intracranial EEG from the hippocampus of epileptic patients. The results of the simulation are summarised here in figure~\ref{fig: SimResults} and are similar to those published by~\cite{wendling2002epileptic}. 
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+	\centering
+		\includegraphics[width = 1\textwidth]{../../Images/Images/pdf/Wendling_Sim_Results_all.pdf}
+	\caption{Wendling model simulation results. Each figure corresponds to a different excitatory synaptic gain. The x and y axes correspond to the fast and slow inhibitory synaptic gains for each simulation.}
+	\label{fig: SimResults}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\red{Observations from simulation results}
+
+From figure~\ref{fig: SimResults} it can be seen that as $\theta_{p}$ increases the number of transitions between types of neural activity expands. Further, it is noted that for low $\theta_{p}$ mostly background EEG is observed. In seizure activity there are numerous transitions in the type of activity observed, and it would make sense that the slow states describing the recorded EEG would occur in regions of the parameter space where there are numerous transitions in a relatively small parameter space. These areas of the parameter space occur when $\theta_{p}$ is greater than four, $\theta_{si}$ is between five and twenty and $\theta_{fi}$ is less than twenty. This can be clearly seen in figure~\ref{fig: SimResults} when $\theta_{p}$ and $\theta_{fi}$ are set to five. By slowly decreasing $\theta_{si}$ from fifteen to five all types of activity that are described by this model are observed.
+
+\subsection{Model Estimation}
+\label{ssec: MEstimation}
+
+\red{Estimation of states, with known parameters.}
+Firstly, the estimation of the model's slow states is considered. That is, the model parameters or slow states, are considered to be known. Simulated EEG is generated and used as observations for the estimation procedure to demonstrate its ability to track the model's fast states. This simulated signal is then corrupted by an additive Gaussian noise signal with a known variance. In figure~\ref{fig: EstFSO} the results for the membrane potentials of each neural population's simulation and estimation is demonstrated.
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_0PE_Gauss_N_0mV_Ve2.pdf}
+	\caption{Results for the estimation and simulation of fast states. For the simulated signal the slow states are specified to occur at the midpoint of their physiological range. The estimation results are shown in red, and the simulated observations in black. The membrane potentials shown in this result correspond with those demonstrated in figure~\ref{fig: Biological}}
+	\label{fig: EstFSO}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\red{Observations from estimation of fast states} 
+
+It is clear from figure~\ref{fig: EstFSO} that the unscented Kalman filter can track the fast states from the model. However, it is clear that the UKF is better at tracking the fast states slower dynamics. That being said the UKF is still capable of tracking fast dynamics in these states, but not as accurately. The reason for this is that the uncertainty in the filter at times cannot account for the stochastic input to the model. 
+
+\subsection{Slow state estimation}
+\label{ssec: SSEstimation}
+
+\red{Estimation of single parameter.}
+
+Next the addition of a single slow state to the estimation procedure is considered. The estimation setting, initialised uncertainty, standard deviation and mean's, are identical for those used in the fast state estimation procedure with the addition of a slow state to the augmented state matrix. In figure~\ref{fig: ESTOSFP} the results for the estimation of the synaptic gain of pyramidal neurons is demonstrated. 
+
+\begin{figure}
+	\centering
+		\includegraphics{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_1PE_Gauss_N_0mV_Excitation.pdf}
+	\caption{Estimated and simulated excitatory synaptic gain. In this figure the estimation of the excitatory synaptic gain is demonstrated. For this estimation the inhibitory parameters are considered to be known. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: ESTOSFP}
+\end{figure}
+
+\red{Observations from estimation of single slow state}
+It is clear from figure~\ref{fig: ESTOSFP} that the estimation of this slow state oscillates around its actual value. However, the estimation error on this slow state remains low.
+
+\red{Estimation of three parameters.}
+
+Next the estimation of all slow states is considered. To achieve this the state matrix is augmented as described previously. Initially, the slow states are held constant for the model simulation. It is then assumed that the value of the slow states are unknown, and they are estimated. In figure~\ref{fig: ESTMP3} the result for this estimation procedure is demonstrated.
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_3PE_Gauss_N_1mV_Vsi.pdf}
+	\caption{Estimated and simulated slow states. Here three slow states are considered: excitatory ($\theta_{p}$) and slow ($\theta_{si}$) and fast inhibitory ($\theta_{fi}$) synaptic gains. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: ESTMP3}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\red{Observations from estimation of three slow state}
+
+From figure~\ref{fig: ESTMP3} it is clear that all model slow states can be estimated. Further, it can be seen that the estimation of inhibition appears to be more accurate in this procedure.
+
+\subsubsection{Estimation with varying noise}
+
+\red{Estimation of three parameters with varying levels of observations noise.}
+
+For the dual estimation problem, results described in section~\ref{ssec: SSEstimation} are obtained when observation noise level is low; however, for iEEG recordings this will not necessarily be the case. Therefore, it is necessary to consider how robust the estimation procedure is to noise. To determine this the noise added to the simulated signal is increased, the results of this procedure are shown in figures~\ref{fig: ESTFail}-\ref{fig: ESTPass}.
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_3PE_Gauss_N_700mV_Model_Parameters.pdf}
+	\caption{Estimation and simulation results for large observation noise. In this estimation procedure the noise added to the system has a standard deviation of 700mV. Red here indicates the estimate for the slow state, and green the error in the estimate. }
+	\label{fig: ESTFail}
+\end{figure}
+\begin{figure}
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_3PE_Gauss_N_650mV_Model_Parameters.pdf}
+	\caption{Estimation and simulation results for large observation noise. In this estimation procedure the noise added to the system has a standard deviation of 650mV. Red here indicates the estimate for the slow state, and green the error in the estimate. }
+	\label{fig: ESTPass}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\red{Observations from estimation with varying levels of noise}
+
+In figure~\ref{fig: ESTPass} the noise level is set to 650mV and in figure~\ref{fig: ESTFail}, 700mV. It is clear from these two figures that the increase in noise has led to the failure of the estimation procedure. Therefore, assuming that this procedure overestimates the robustness of the UKF it can be assumed that this method will work well when observation noise is less than 500mV, given that the recordings are normlaised to an equivalent voltage as that for the simulated observations.
+
+\subsubsection{Estimation with varying initialisation state error}
+
+\red{Estimation of parameters with different percentage error initial parameter guesses.}
+When considering the estimation of the states the distance between the actual and initialised states could result in convergence to incorrect slow states. To determine how robust the estimation procedure is to the distance between the actual and initialised states numerous estimations are performed with different initialised states. The results are shown in figure~\ref{fig: EstInitFail}
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_6_B_21_G_32_DC_S_2_P_3PE_Gauss_N_10mV_Model_Parameters.pdf}
+	\caption{Estimation and simulation results when slow states are initialised with a high percentage error from their actual values. Red here indicates the estimate for the slow state, and green the error in the estimate. }
+	\label{fig: EstInitFail}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\red{Observations from estimation of parameters with different percentage error initial parameter guesses.}
+
+The results in figure~\ref{fig: EstInitFail} demonstrate the importance of the initialisation of the model's slow states. If the slow states are initialised with a high level of inaccuracy the estimation procedure does not converge to the true values of the slow states. When considering the values the slow states converge to, it is clear that they are not within the described physiological range of the model. Therefore, the estimates are considered to be an inaccurate description of the observed activity.
+
+This problem can be solved by conditioning the results of the estimation procedure. Here the estimation algorithm determines whether the final estimate for each slow state occurs within its physiological range. If the final estimates occur outside the physiological range for the specified parameter then the initialised states are redrawn from a Gaussian distribution and the estimation procedure is redone. In figure~\ref{fig: EstInitPass} an example of the estimation is shown, where states converge after a longer duration in time.
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_6_B_12_G_27_DC_S_2_P_3PE_Gauss_N_10mV_Model_Parameters.pdf}
+	\caption{Estimation and simulation results when slow states are initialised with a lower percentage error than figure~\ref{fig: ESTFail} error from their actual values. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: EstInitPass}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Estimation of varying parameters}
+\red{Estimation of parameter with varying simulated parameters.}
+
+All the results before now have assumed that the simulated observations are stationary, at least in a sense that the slow states values used to simulate the model are constant throughout. However, the brain is not stationary, and it is the altering of the model parameters that results in the various seizure like activity that are observed in the simulated model. Therefore, it is necessary to consider the estimation of parameters when they are altering within a single simulation. Here the estimation of a simulated seizure is shown in figure~\ref{fig: ESTMP3VPS} and its corresponding slow states in figure~\ref{fig: ESTMP3VP}.
+
+\begin{figure}
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_VP_f=2048_A_5_B_40_G_20_DC_S_2_P_3PE_Gauss_N_10mV_Model_States_Inputs1.pdf}
+	\caption{Estimation and simulation of membrane potentials of each neural populations as the model transitions from background to seizure EEG. Red here indicates the estimate for the membrane potential and black its simulated value.}
+	\label{fig: ESTMP3VPS}
+\end{figure}
+\begin{figure}
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_VP_f=2048_A_5_B_40_G_20_DC_S_2_P_3PE_Gauss_N_10mV_Model_Input_and_Parameters.pdf}
+	\caption{Estimation and simulation results for varying slow states used to generate the seizure in figure~\ref{fig: ESTMP3VPS}. Parameters are altered every five seconds, with some transition time. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: ESTMP3VP}
+\end{figure}
+
+\red{Observations from estimation of seizure}
+
+In figure~\ref{fig: ESTMP3VPS} the membrane potentials of each neural populations is shown. Here $v_{p}$ is the model output, and in this case a simulated seizure. There are four different parameter sets used to simulate this seizure. Eaach corresponds to a five second epoch in figure~\ref{fig: ESTMP3VPS}. Four types of neural activity can be seen, these being background (1-5s), interictal (6-10s), low amplitude high frequency (11-15s) and seizure (16-20s). Notice that the estimation procedure is capable of tracking the model's membrane potentials (figure~\ref{fig: ESTMP3VPS}). In figure~\ref{fig: ESTMP3VP} the estimation of the slow states is shown. It is clear from this figure that the estimation procedure is capable of tracking slow states when they vary within a single simulation.  
+
+\subsection{Estimation of the model input mean}
+
+In epileptic patients it is unreasonable to assume that the mean input firing rate from other regions of the brain remains constant. This is particularly true during seizure periods. Therefore, the estimation procedure is further extended to the case where the input mean is considered a slow state. The results from this estimation procedure are shown in figure~\ref{fig: ESTMP4}.
+
+\begin{figure}
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_f=2048_A_5_B_20_G_20_DC_S_2_P_4PE_Gauss_N_1mV_Model_Input_and_Parameters.pdf}
+	\caption{Estimation and simulations results for all model slow states including the input mean. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: ESTMP4}
+\end{figure}
+
+\red{Observations from estimation of four slow state}
+
+From figure~\ref{fig: ESTMP4} it can be seen that the input mean can be estimated, while estimating the model parameters. This is an important results, as it shows that it is theoretically possible to estimate the effect of afferent neural masses on the modeled neural population.
+
+\red{Estimation of all model parameters when varying parameters in a single simulation}
+Lastly consider the case that seizure activity at the focus results in a spread of a seizure. This spread of seizure activity would alter the normal activity of the neural populations connected to the modeled region. This abnormal activity would result in variations in the mean of the input to the modeled populations. Therefore, the situation were model parameters are varying is considered again. But in this case it is assumed that the input mean is unknown, and it is estimated. The results for his estimation procedure are shown in figure~\ref{fig: ESTMP4VP}.
+
+\begin{figure}
+	\centering
+		\includegraphics[width =1\textwidth]{../../Images/Images/pdf/Gauss_UKF_WM8_VP_f=2048_A_5_B_40_G_20_DC_S_2_P_4PE_Gauss_N_10mV_Model_Input_and_Parameters.pdf}
+	\caption{Estimation and simulations results for all varying model slow states, used to generate seizure EEG, as well the input mean. Red here indicates the estimate for the slow state, and green the error in the estimate.}
+	\label{fig: ESTMP4VP}
+\end{figure}
+
+\red{Observations from estimation of parameters and input for simulated seizure}
+In figure~\ref{fig: ESTMP4VP} it is clear that the estimation procedure is capable of tracking the model parameters and estimating the input mean at the same time. It is worth noting that when the estimation of the input mean varies from its actual value the estimation of both the excitatory and fast inhibitory synaptic gains do not vary much. However, the synaptic gain of the slow inhibitory population varies from its actual value when the estimation of the input mean is incorrect. This suggests that these two parameters are inherently linked. 
+
+
+\red{Estimation of single parameter set with different simulated signals due to stochastic input}
+
+All of the estimation's procedure discussed above have considered different simulated model outputs. This is in light ogf the fact the the input to the model is stochastic in nature. Therefore, it is necessary to determine the performance of this estimation procedure over numerous simulated observations. To test the estimation procedure a slow states are held constant for the simulated observations; however, the input is altered for each simulation. This is repeated one hundred times. For each of these simulated signals the slow states and input mean are estimated. In figure~\ref{fig: MultiSim} the mean and standard deviation for each model parameter is shown. \red{I am still working on this}
+

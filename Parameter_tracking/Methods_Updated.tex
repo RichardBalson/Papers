@@ -1,0 +1,363 @@
+\section{Methods}
+
+\red{ What we are doing in this paper}
+The Wendling model is capable of replicating key features observed in hippocampal EEG prior to, during and post seizure~\citep{wendling2002epileptic}. Here the estimation of physiologically relevant model parameters from the Wendling model is considered. An unscented Kalman filter is used to estimate the model parameters of interest. For this study the estimation procedure is tested using artificial EEG simulated using the Wendling model. By doing so it is possible to determine how robust the unscented Kalman filter is when estimating the Wendling model.
+
+\subsection{Model Description and Simulation}
+
+\red{Wendling model description.}
+
+The Wendling model describes the aggregate membrane potentials and firing rates produced by different neural populations. The neural populations are then excited or inhibited by other populations in the model. The net effect of one population on another is determined by a scaling constant termed connectivity. A graphical representation of the model is shown in Figure~\ref{fig: Biological}. In the model four different neural populations are considered. The pyramidal neural population is the generator of EEG. Excitatory interneurons excite the pyramidal neurons. Slow and fast inhibitory interneurons suppress the pyramidal neural population. Further, the pyramidal neural population excites the excitatory and slow and fast inhibitory populations. Lastly, slow inhibitory interneurons suppress the fast inhibitory neural population. The effect of each neural population on the other is scaled by connectivity. Connectivity accounts for the number of afferent synaptic connections between neural populations.  Lastly, a stochastic input to the model is added to account for the effect of afferent pyramidal neurons on the modeled neural mass.
+\begin{figure}  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics{jpg/Biological_Model_Description.jpg}
+	\caption{Graphical Descption of the Wendling model.}
+	\label{fig: Biological}
+\end{figure}
+
+\red{Mathematical functions used in the model}
+The Wendling model consists of two primary structures. The first structure is a sigmoid function which converts an aggregate membrane potential to an average firing rate\begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: Sigmoid}
+g(v(t)) &= \frac{g_{max}}{1+exp(r(v(t)-v_{0}))}. \end{align} In equation~\ref{eqn: Sigmoid} $g(v(t))$ is the firing rate, $g_{max}$ is the maximum firing rate, $r$ is the sigmoid gradient and $v_{0}$ is the membrane potential at which $0.5g_{max}$ is attained. The second structure is an average firing rate to aggregate membrane potential kernel \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: Convert}
+v_{m}(t) &= \theta_{m}(t)h_{m}(t)\eta(t)*g(v(t))\\
+\label{eqn: Kernel} 
+h_{m}(t) &= \frac{1}{\tau_{m}}texp\left(-\frac{t}{\tau_{m}}\right). \end{align} In equations~\ref{eqn: Convert}-\ref{eqn: Kernel} $v_{m}(t)$ is the aggregate membrane potential, $h_{m}(t)$ is a kernel which converts firing rates into membrane potentials, $\theta_{m}(t)$ is the synaptic gain and $\tau_{m}$ is the time constant. $\eta(t)$ is a heavyside function. $h_{m}(t)$ is a delayed exponential decay function (Figure~\ref{fig: FR2PSP_final}). Here the subscript $m$ is used to indicate that each neural population is described with a different synaptic gain and time constant. The synaptic gains are described by $\theta_{m}(t)$ as they are the parameters that are altered in order to simulate seizure EEG (Figure~\ref{fig: SeizureSim}). Further, the synaptic gains will be the variables that are estimated in this study. In this description of the Wendling model numerous model parameters are considered to be stationary, this includes the maximum firing rate~($g_{max}$) and time constants~($\tau_{m}$). 
+To solve the convolution in equation~\ref{eqn: Convert} we transform both $g(v(t))$ and $h_{k}(t)$ into the $S$ domain such that \begin{align}%%%%%%%%%%%%%%%%%
+\label{eqn: Laplace}
+G(V(s)) &= \frac{g_{max}}{1+exp(r(V(S)-v_{0}))}\\
+H_{m}(s) &= \frac{\mathrm{d}}{\mathrm{d}S}\left(-\frac{\theta_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)\right)\\
+H_{m}(s) &= \frac{\theta_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)^2.
+\end{align} It is clear here that the sigmoid function has no functional dependence on time, therefore the output of the sigmoid will be assumed to be an input described by $u_{m}(t)$, this applies to the model parameters $\theta_{m}(S)$ as well, this simplifies the convolution equation to \begin{align}%%%%%%%%%%%%%%%
+G(V(s)) &= U_{m}(s)\\
+H_{m}(s) &= \frac{\theta_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)^2\\
+\label{eqn: LaplaceNMM}
+V_{m}(s) &= \frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)^2.
+\end{align} Using equation~\ref{eqn: LaplaceNMM} we can describe the membrane potential $v_{m}(t)$ as a second order differential equation as follows \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%
+V_{m}(s) &= \frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}\left(\frac{1}{s^2+\frac{2s}{\tau_{m}}+\frac{1}{\tau^2_{m}}}\right)\\
+\label{eqn: LaplaceDiff}
+V_{m}(s)\left(s^2+\frac{2s}{\tau_{m}}+\frac{1}{\tau^2_{m}}\right) &= \frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}.
+\end{align} Taking the inverse Laplace transform of equation~{eqn: LaplaceDiff} results in \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frac{\mathrm{d}}{\mathrm{d}t^2}(v_{m}(t)) + \frac{\mathrm{d}}{\mathrm{d}t}\left(\frac{2*v_{m}(t)}{\tau_{m}}\right) + \frac{v_{m}(t)}{\tau^2_{m}} &= \frac{\theta_{m}(t)u_{m}(t)}{\tau_{m}}\\
+\label{eqn: DiffNMM}
+\frac{\mathrm{d}}{\mathrm{d}t^2}(v_{m}(t)) &= \frac{\theta_{m}(t)u_{m}(t)}{\tau_{m}} - \frac{\mathrm{d}}{\mathrm{d}t}\left(\frac{2*v_{m}(t)}{\tau^2_{m}}\right) -\frac{v_{m}(t)}{\tau^2_{m}}. \end{align} Now we define a variable such that equation~\ref{eqn: DiffNMM} can be described as two differential equations \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: dummy1}
+\frac{\mathrm{d}}{\mathrm{d}t}(v_{m}(t)) &= z_{m}(t)\\
+\label{eqn: dummy2}
+\frac{\mathrm{d}}{\mathrm{d}t^2}(v_{m}(t)) &= \frac{\mathrm{d}}{\mathrm{d}t}(z_{m}(t)).\end{align} Here $z_{m}(t)$ is defined as the derivative of of the membrane potential $v_{m}(t)$. Lastly to simplify notation a time derivative operator is specified \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: DiffOp}
+\frac{\mathrm{d}}{\mathrm{d}t}(v_{m}(t)) &= \dot{v}_{m}(t).
+\end{align} %%%%%%%%%%%%%
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics{pdf/FR2PSP_final.pdf}
+	\caption{Firing rate to aggregate membrane potential converter.}
+	\label{fig: FR2PSP_final}
+\end{figure} 
+\begin{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\centering
+		\includegraphics{../../Images/Images/pdf/Boon_SF_512_FO_10_HC_3_LC_100Wendling_Output.pdf}
+	\caption{Artificial seizure simulated using the wendling model.}
+	\label{fig: SeizureSim}
+\end{figure}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Equations~\ref{eqn: DiffNMM}-\ref{eqn: DiffOp} can be converted into a set of two differential equations \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: FR2PSP1}
+\dot{v}_{m}(t)&= z_{m}(t)\\
+\label{eqn: FR2PSP2}
+\dot{z}_{m}(t)&=\frac{\theta_{m}(t)}{\tau_{m}}n_{m}u_{m}(t)-2\frac{z_{m}(t)}{\tau_{m}}-\frac{v_{m}(t)}{\tau_{m}^{2}}.
+\end{align} Here $v_{m}(t)$ is the average membrane potential and $z_{m}(t)$ is its derivative. $\theta_{m}(t)$ and $\tau_{m}$ are the specific neural populations synaptic gain and time constant. Lastly, $u_{m}(t)$ is the firing rate to the specific neural population considered and $n_{m}$ is a constant used to describe connectivity.
+
+\red{Full mathematical description of the model}
+Using equations~\ref{eqn: FR2PSP1}-\ref{eqn: FR2PSP2} the model can be described by a set of eight stochastic differential equations \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\mathrm{d}v_{po}(t)&= z_{po}(t)\mathrm{d}t\\
+\mathrm{d}z_{po}(t)&=\left(\frac{\theta_{p}(t)}{\tau_{p}}n_{p}g(v_{p}(t))-2\frac{z_{po}(t)}{\tau_{p}}-\frac{v_{po}(t)}{\tau_{p}^{2}}\right)\mathrm{d}t\\
+\mathrm{d}v_{p1}(t)&= z_{p1}(t)\mathrm{d}t\\
+\mathrm{d}z_{p1}(t)&=\left(\frac{\theta_{e}(t)}{\tau_{e}}(\mu +n_{e}g(v_{e}(t))-2\frac{z_{p1}(t)}{\tau_{e}}-\frac{v_{p1}(t)}{\tau_{e}^{2}}\right)\mathrm{d}t + \frac{\theta_{e}(t)}{\tau_{e}}\epsilon(t)\mathrm{d}W\\
+\mathrm{d}v_{p2}(t)&= z_{p2}(t)\mathrm{d}t\\
+\mathrm{d}z_{p2}(t)&=\left(\frac{\theta_{si}(t)}{\tau_{si}}n_{si}g(v_{si}(t))-2\frac{z_{p2}(t)}{\tau_{si}}-\frac{v_{p2}(t)}{\tau_{si}^{2}}\right)\mathrm{d}t\\
+\mathrm{d}v_{p3}(t)&= z_{p3}(t)\mathrm{d}t\\
+\mathrm{d}z_{p3}(t)&=\left(\frac{\theta_{fi}(t)}{\tau_{fi}}n_{fi}g(v_{fi}(t))-2\frac{z_{p3}(t)}{\tau_{fi}}-\frac{v_{p3}(t)}{\tau_{fi}^{2}}\right)\mathrm{d}t.
+\end{align} $dW$ represents a Wiener process and is required as $\epsilon(t)\longmapsto N(0,\sigma)$. Here $\sigma$ and $\mu$ describe the mean and variance of the stochastic model input. Further, $v_{po}(t) $ and $v_{p1-3}(t)$ represent the membrane potential produced by each neural population and $z_{po}(t) $ and $z_{p1-3}(t)$ their derivatives. $v_{m}(t) $ and $z_{m}(t) $ are the inputs to each neural population, and are considered to be the membrane potential of the specific population. $m$ takes the values of $p$, $e$, $fi$ and $si$ representing pyramidal, excitatory, and slow and fast inhibitory populations, respectively. Therefore $v_{p}(t) $ is the output of the model. All $v_{m}(t) $ can be described in terms of $v_{po}(t)$ and $v_{p1-3}(t)$ as follows \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+v_{p}(t) &= v_{p1}(t)-v_{p2}(t)-v_{p3}(t)\\
+v_{e}(t) &= c_{1}v_{po}(t)\\
+v_{si}(t) &= c_{3}v_{po}(t)\\
+v_{fi}(t) &= c_{5}v_{po}(t)-c_{6}v_{p2}(t),
+\end{align} where $c_{1}$, $c_{3}$ and $c_{5}$ represent the connectivity strength from pyramidal to excitatory, slow inhibitory and fast inhibitory populations, respectively. $c_{6}$ represents the connectivity strength from the slow to the fast inhibitory population. Lastly, all $n_{m}$ can be defined as connectivity constants where\begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+n_{p} &=1\\
+n_{e} &=c_{2}\\
+n_{si} &=c_{4}\\
+n_{fi} &=c_{7}.
+\end{align} Here $c_{2}$, $c_4$ and $c_7$ represent the connectivity strength from excitatory, slow inhibitory and fast inhibitory to the pyramidal population.
+
+\red{Simulation of model}
+This set of continuous stochastic differential equations is discretised using Euler-Mariyama's method, to simulate the artificial EEG. \begin{align}
+v_{po,k+1}&=v_{po,k}+Tz_{po,k}\\
+z_{po,k+1}&=z_{po,k}+T\left(\frac{\theta_{p,k}}{\tau_{p}}n_{p}g(v_{p,k})-2\frac{z_{po,k}}{\tau_{p}}-\frac{v_{po,k}}{\tau_{p}^{2}}\right)\\
+v_{p1,k+1}&=v_{p1,k}+Tz_{p1,k}\\
+z_{p1,k+1}&=z_{p1,k}+T\left(\frac{\theta_{e,k}}{\tau_{e}}(\mu +n_{e}g(v_{e,k})-2\frac{z_{p1,k}}{\tau_{e}}-\frac{v_{p1,k}}{\tau_{e}^{2}}\right) + \sqrt{t}\frac{\theta_{e,k}}{\tau_{e}}\epsilon_{t}\\
+v_{p2,k+1}&=v_{p2,k}+Tz_{p2,k}\\
+z_{p2,k+1}&=z_{p2,k}+T\left(\frac{\theta_{si,k}}{\tau_{si}}n_{si}g(v_{si,k})-2\frac{z_{p2,k}}{\tau_{si}}-\frac{v_{p2,k}}{\tau_{si}^{2}}\right)\\
+v_{p3,k+1}&=v_{p3,k}+Tz_{p3,k}\\
+z_{p3,k+1}&=z_{p3,k}+T\left(\frac{\theta_{fi,k}}{\tau_{fi}}n_{fi}g(v_{fi,k})-2\frac{z_{p3,k}}{\tau_{fi}}-\frac{v_{p3,k}}{\tau_{fi}^{2}}\right).
+\end{align} Where $k$ represents the current sample and $T$ is the period between samples. The static parameter values are demonstrated in  Tables~\ref{tab: Static}-\ref{tab: Connectivity}. The variance of the input ($\sigma$) is specified such that 99.7\% of realisations drawn from the Gaussian distribution fall within the specified maximum and minimum firing rate. In this case, the firing rate limits are set to 30 and 150. For the cases where the realisations from the Gaussian distribution are not contained within the limits specified, the specific sample of interest is redrawn from the same Gaussain distribution until the firing rate falls within the specified range. In Table~\ref{tab: Static} the parameters $\theta_{p,k}$, $\theta_{e,k}$, $\theta_{si,k}$ and $\theta_{fi,k}$ are not specified as these parameters will vary for different simulations. However,for this simulation it is assumed that \begin{align}
+\theta_{p,k} = \theta_{e,k}.
+\end{align}
+\singlespacing
+\small
+\begin{center}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\begin{table}
+			\caption{Static Model Parameters}
+		\begin{tabular}{||p{4cm}|p{6cm}|p{1.5cm}|p{1.2cm}||}\hline
+			 \textsc{Model parameter}  & \textsc{Physical description} & \textsc{Value} & \textsc{Units}  \\\hline\hline
+			 $\tau_{p}$ & Time constant for pyramidal neurons & 100 & $s^{-1}$\\\hline
+			 $\tau_{e}$ & Time constant for excitatory neurons & 100 & $s^{-1}$\\\hline
+			 $\tau_{si}$ & Time constant for slow inhibitory neurons & 35 & $s^{-1}$\\\hline
+			 $\tau_{fi}$ & Time constant for fast inhibitory neurons & 500 & $s^{-1}$\\\hline
+			 $c$ & Connectivity constant & 135 & NA\\\hline
+			 $g_{max}$ & Maximum firing rate & 5 & Hz \\\hline
+			 $v_{0}$ & PSP for which 50\% firing rate is achieved & 6 & $mV^{-1}$\\\hline
+			 $r$ & Gradient of sigmoid function & 0.56 & NA \\\hline
+			 $\mu$ & Input mean firing rate & 90 & $Hz$\\\hline
+			 $\sigma$ & Variance of input firing rate & 15 & $Hz$\\\hline\hline 
+		\end{tabular}
+		\label{tab: Static}
+	\end{table}
+\end{center}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{center}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	\begin{table}
+			\caption[Static Model Parameters: Connectivity]{Static model parameters: Connectivity. $C$ is the connectivity constant specified in Table~\ref{tab: Static}. Terms in brackets indicate the direction in which the constant affects the system. Here P, E, SI and FI represent populations of pyramidal neurons and excitatory, slow inhibitory and fast inhibitory interneurons, respectively.}
+		\begin{tabular}{||p{4cm}|p{7cm}|p{2cm}||}\hline
+			 \textsc{Model parameter}  & \textsc{Physical description} & \textsc{Value}
+			   \\\hline\hline
+			 $c_{1}$ & Connectivity constant (P - E) & $C$ \\\hline
+			 $c_{2}$ & Connectivity constant (E + I - P) & $0.8C$ \\\hline
+			 $c_{3}$ & Connectivity constant (P - SI) & $0.25C$  \\\hline
+			 $c_{4}$ & Connectivity constant (SI - P)& $0.25C$ \\\hline
+			 $c_{5}$ & Connectivity constant (P - FI) & $0.3C$ \\\hline
+			 $c_{6}$ & Connectivity constant (SI - FI) & $0.1C$ \\\hline
+			 $c_{7}$ & Connectivity constant (SI - P) & $0.8C$ \\\hline\hline
+		\end{tabular}
+		\label{tab: Connectivity}
+	\end{table}
+\end{center}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\normalsize
+\onehalfspacing
+
+\subsection{Estimation}
+
+\red{Generic description on a nonlinear system}
+To begin we define a generic nonlinear system where \begin{align}
+\mathbf{\dot{x}}(t) &= A(\mathbf{x}(t),\mathbf{\theta}(t)) + B(\mathbf{u}(t)) + \mathbf{n}(t)\\
+\mathbf{y}(t)  &= C(\mathbf{x}(t)) +\mathbf{r}(t),
+\end{align} where boldface indicates a matrix. Here $\mathbf{x}(t)$ the state vector and $\dot{\mathbf{x}}(t)$ its derivative where
+\[ \dot{x}(t) = \left[ \begin{array}[pos]{c}
+\dot{x}_{1}(t)\\
+\vdots \\
+\dot{x}_{n}(t) \end{array} \right] .\]  $A$, $B$ and $C$ are the state, input and output functions and $\mathbf{u}(t)$ the input to the model. $\mathbf{y}(t)$ is the model output with $\mathbf{n}(t)$ the model noise, or uncertainty and $\mathbf{r}(t)$ the measurement error, or observation noise. Here $\mathbf{n}(t)$ takes into account that the model is not a perfect descriptor of the particular region of the brain, and $\mathbf{r}(t)$ describes the maximum amplitude of the noise in the observations. Both $\mathbf{n}(t)$ and $\mathbf{r}(t)$ are zero mean Gaussian distributions with a system dependant variance. It is important to note that this assumption of a Gaussian distribution is only valid when the number of samples for the estimation procedure is large.
+
+\red{Introduction to the UKF}
+Estimation is usually performed to estimate the model states $\mathbf{x}(t)$ given some observation $\mathbf{y}(t)$ . One method that is often use for estimating linear systems is the Kalman filter. The Kalman filter consists of two steps: prediction and correction. In the prediction step model states are propagated through the system and are used to determine the expected value of the states at the next time step. Using a first order Euler-Maruyama method this can be described by \begin{align}
+\mathbf{x}_{k+1}^{-} &= \mathbf{x}_{k} + T\mathbf{A}(\mathbf{x}_{k}) +\sqrt{T}\mathbf{n}_{k}
+\label{eqn: YProp}
+\mathbf{y}_{k+1}^{-}  &= \mathbf{y}_{k} + T\mathbf{C}(\mathbf{y}_{k}) +\sqrt{T}\mathbf{r}_{k}
+\end{align} where the subscript in $x_{k}^{-}$ is used to indicate the current sample and $T$ is the sampling period. The superscript in $x_{k}^{-}$ is used to indicate that this estimate is a prediction that has not yet been corrected by the current observation. Performing this kind of prediction for a nonlinear system would be inaccurate. The reason for this is that propagation of states like this in a system would require the assumption that the maximum error in the states remains constant for all time. However, in a nonlinear system this is not true, as states error can vary from one prediction to the next. In other words if the original state estimate is incorrect in a nonlinear system it is possible that the error can increase from one step to the next. This is not the case for linear system. In order to account for this error, or the altering of state covariance an unscented filter is used in the prediction step for nonlinear systems. The advantage of an unscented filter over local linearisation techniques is both speed is improved and discontinuities can be handled. 
+
+\red{The unscented filter}
+The unscented filter is completely described by the states mean and covariance such that sigma points can be drawn as follows\begin{align}
+\label{eqn: Unscented_Transform1}
+\mathbf{\mathcal{X}}_{n} &= \mathbf{\overline{x}}_{k} + (\sqrt{\kappa+D_{x}\mathbf{P_{xx,k}}})_{n} \quad n=1,\hdots,D_x\\
+\label{eqn: Unscented_Transform2}
+\mathbf{\mathcal{X}}_{n+D_{x}} &= \mathbf{\overline{x}}_{k} - (\sqrt{\kappa+D_{x}\mathbf{P_{xx,k}}})_{n} \quad n=1,\hdots,D_x,
+\end{align} where $\mathbf{\overline{x}}_{k}$ is the current state estimate. $\sqrt{\cdot}_{n}$ denotes the $n$th row or column of the matrix square root. $D_{x}$ is the number of states in the system and $\mathbf{P_{xx,k}}$ is the covariance matrix or expected error of the current state estimate. $\kappa$ is a predefined constant which determine the relative effect of the propagation of the mean, this will be discussed later. For now if $\kappa$ is equal to zero than the system mean is not propagated as a sigma point. However, if $\kappa$ is greater than zero then \begin{align}
+\mathbf{\mathcal{X}}_{0} &= \mathbf{\overline{x}}_{k}.
+\end{align} Now their are 2$D_{x}$ sigma points when $\kappa$ is zero or 2$D_{x}$+1 sigma points when it is greater than zero. The sigma points are then propagated through the system in oder to update the expectation about the state mean and error. \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\mathbf{\mathcal{X}}_{n,k+1} &= \mathbf{\mathcal{X}}_{k}+ T\mathbf{A}(\mathbf{\mathcal{X}}_{n,k}) +\sqrt{T}{n}_{k}\\
+\overline{\mathbf{x}}_{k+1}^{-} &= \frac{1}{2D_{x}+\kappa}\sum_{n=1}^{2D_{x}} \mathbf{\mathcal{X}}_{n,k+1}\\
+\mathbf{P}_{xx,k+1}^{-} &= \frac{1}{2D_{x}+\kappa}\sum_{n=1}^{2D_{x}} (\mathbf{\mathcal{X}}_{n,k+1} -\mathbf{\overline{x}}_{k+1}^{-})(\mathbf{\mathcal{X}}_{n,k+1}-\mathbf{\overline{x}}_{k+1}^{-})^{\top} \mathbf{Q}.%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{align} Here $\overline{\mathbf{x}}_{k+1}^{-}$ and $\mathbf{P}_{xx,k+1}^{-}$ are the predictions for the state and state covariance matrices. The superscript $a^{-}$ is used to indicate an uncorrected prediction. $\mathbf{Q}$ is the expectation of the model error $n_{k}$. Further, it is possible to make a prediction about the observation at sample $k+1$ by propagating the sigma points through equation~\ref{eqn: YProp} \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\mathbf{\mathcal{Y}}_{n,k+1} &= \mathbf{\mathcal{Y}}_{k} + T\mathbf{C}(\mathbf{\mathcal{X}}_{n,k})+ \sqrt{T}{r}_{k}\\
+\overline{\mathbf{y}}_{k+1}^{-} &= \frac{1}{2D_{x}+\kappa}\sum_{n=1}^{2D_{x}} \mathbf{\mathcal{Y}}_{n,k+1}\\
+\label{eqn: statecovg}
+\mathbf{P}_{xy,k+1}^{-} &= \frac{1}{2D_{x}+\kappa}\sum_{n=1}^{2D_{x}} (\mathbf{\mathcal{X}}_{n,k+1}-\mathbf{x}_{n,k+1}) (\mathbf{\mathcal{Y}}_{n,k+1}-\overline{\mathbf{y}}_{k+1}^{-})^{\top}\\
+\mathbf{P}_{yy,k+1}^{-} &= \frac{1}{2D_{x}+\kappa}\sum_{n=1}^{2D_{x}} (\mathbf{\mathcal{Y}}_{n,k+1}-\overline{\mathbf{y}}_{k+1}^{-}) (\mathbf{\mathcal{Y}}_{n,k+1}-\overline{\mathbf{y}}_{k+1}^{-})^{\top} +\mathbf{R},%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{align} where $\overline{\mathbf{y}}_{k+1}^{-}$ and $\mathbf{P}_{yy,k+1}^{-}$ are the predictions for the model output and its covariance. $\mathbf{P}_{xy,k+1}^{-}$ is the covariance matrix of the states and observations. Lastly, $\mathbf{R}$ is the expectation of the observation error $r_{k}$.
+
+\red{How states are predicted using the unscented transform}
+The predictions of the states ($\overline{\mathbf{x}}_{k+1}^{-}$) and observations ($\overline{\mathbf{y}}_{k+1}^{-}$) now need to be corrected based on the observations. This is achieved by \begin{align}
+\mathbf{K} &= \mathbf{P}_{xy,k+1}^{-}(\mathbf{P}_{yy,k+1}^{-})^{-1}\\
+\mathbf{x}_{k+1} &= \overline{\mathbf{x}}_{k+1}^{-} + \mathbf{K}(\mathbf{y}_{k+1}-\overline{\mathbf{y}}_{k+1}^{-})\\
+\mathbf{P}_{xx,k+1} &= \mathbf{P}_{xx,k+1}^{-} - \mathbf{K}(\mathbf{P}_{xy,k+1}^{-})^{\top},
+\end{align} where $\mathbf{y}_{k}$ is the recording or observation made, $\mathbf{x}_{k+1}$ is estimate of the state and $\mathbf{P}_{xx,k+1}$ is the estimate of the error on the state. This set of equations describes the UKF and how it can be used to estimate states. However, for this study estimation of states and parameters needs to be achieved (dual estimation).
+
+\red{Definition of slow state matrix and its dynamics}
+Firstly, reconsider the extended neural mass model. The parameters that are being estimated are $\theta_{p,k}$, $\theta_{e,k}$, $\theta_{si,k}$ and $\theta_{fi,k}$. Here it is assumed that \begin{align}
+\theta_{p,k} = \theta_{e,k}.
+\end{align} Therefore, three parameters need to be estimated, and a parameter matrix is defined
+\[ \mathbf{\theta}_{k} = \left[ \begin{array}[pos]{c}
+\theta_{p,k}\\
+\theta_{si,k} \\
+\theta_{fi,k} \end{array} \right] .\] This parameter matrix is then augmented to the original state matrix
+\[ \mathbf{x}_{k} = \left[ \begin{array}[pos]{c}
+\mathbf{x}_{k}\\
+\mathbf{\theta}_{k} \end{array} \right] .\] Note that model parameters will now be referred to as slow states, to allow for ease of reference to the newly defined state matrix. The next issue to consider is the description of the dynamics for the slow states. Due to the prediction correction steps of the unscented Kalman filter these slow states can be assigned trivial dynamics such that
+\begin{align}
+\label{eqn: parameterdynamics}
+\mathbf{\theta}_{k+1} &= \mathbf{\theta}_{k} + \mathbf{\eta_{k}}\\
+E(\mathbf{\theta}_{k+1}) &= \mathbf{\theta}_{k}\\
+P_{\mathbf{\theta} \mathbf{\theta},k+1} &= \mathbf{\Psi},
+\end{align} where $E(\cdot)$ is the expectation function and $\mathbf{\eta}_{k}\longmapsto N(0,\mathbf{\sigma})$.
+
+\red{Intialisation of UKF for stationary parameters}
+When initialising the unscented Kalman filter the uncertainty and standard deviation of the model needs to be specified. Initial estimations are performed under the assumption that the model's slow states are stationary. This assumption allows the uncertainty in slow states to be minimal. The reason for this being that this uncertainty in this case describes only model inaccuracy and not the trivial dynamics of the slow states. Standard deviations in the estimation description are described such that one standard deviation from the midpoint of the specified states range encompasses all possible values for the particular state. Further to this the uncertainty of states directly affected by the stochastic model input is increased to account for the randomness of this signal when simulating. This is required as a stochastic process such as this cannot, at present, be estimated accurately. 
+
+To determine the range for each membrane potential $v_{m,k}$ the following equations are required \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{eqn: Convert2}
+v_{m}(t) &= \theta_{m}(t)\eta(t)h_{m}(t)g(v(t))*u(t)\\
+\label{eqn: Kernel2} 
+h_{m}(t) &= \frac{1}{\tau_{m}}texp\left(-\frac{t}{\tau_{m}}\right). \end{align}
+
+To begin with the mean and standard deviation of each model state needs to be determined. For the fast states the mean and standard deviation can be determined by assuming that the membrane potential $v_{m,0}$ is bounded by some function of sigmoid range $W_{m}$($0$,$g_{max})$. The mean of the membrane potentials is assumed to occur at the mid-point of the sigmoid such that \begin{align}
+E(v_{m,0}) = W_{m}(v_{0}). \end{align} Where $v_{0}$ is defined in equation~\ref{eqn: Sigmoid}, and $W_{m}(\cdot)$ is an unknown function at present. Equation~\ref{eqn: LaplaceNMM} shows the s domain of the menmbrane potential. Since this is a dynamic system the transients need to be removed. Which is identical to determining the value of $v_{m,k}$ as $k$ approaches infinity. In the s domain this is equivalent to s approaching zero. Therefore, \begin{align}
+V_{m}(s) &= \frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)^2\\
+V_{m}(0) &= \frac{\theta_{m}(0)U_{m}(0)}{\tau_{m}}\left(\frac{1}{\frac{1}{\tau_{m}}}\right)^2\\
+\label{eqn: GeneralCalc}
+V_{m}(0) &= \frac{\theta_{m}(0)U_{m}(0)}{\tau_{m}}\tau^2_{m}. \end{align} Where $U_{m}(0)$ and $\theta_{m}(0)$ are constants. However, it is assumed that the the mean membrane potential occurs at the mid-point of the sigmoid. Hence, \begin{align}%%%%%%%%%%%%%%%%%%%%%%%%%5
+U_{m}(0) &= n_{m}g(v_{in})\\
+v_{in} &= v_{0}\\
+U_{m}(0) &= 0.5n_{m}g_{max}.
+\end{align}. Where $g_{max}$ is the maximum firing rate, and $n_m$ is defined previously. This results in the following expression for the mean of each slow state \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+V_{m}(0) &= 0.5\theta_{m}(0)n_{m}g_{max}\tau_{m}.\end{align} It is clear that $\theta_{m}(0)$ is still undefined. This is a slow state that will be estimated. However, in order to initialise the mean an expectation on this value is required. For simplicity it is assumed that all possible values for the parameter $\theta_{m}$ are uniformly distributed within the states pre-described physiological range such that \begin{align}%%%%%%%%%%%%%%%%%%%%%%
+E(\theta_{m}(0)) &= \frac{\theta_{m,max} -\theta_{m,min}}{2}. \end{align} Where $E(\cdot)$ denotes the expectation. Therefore we can define the mean of each slow state $v_{m}(t)$ as \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+V_{m}(0) &= 0.5\left(\frac{\theta_{m,max} -\theta_{m,min}}{2}\right)n_{m}g_{max}\tau_{m}\\
+\label{eqn: MeanCalc}
+\overline{v}_{m,0} &= 0.25\left(\theta_{m,max} -\theta_{m,min}\right)n_{m}g_{max}\tau_{m}. \end{align} For the standard deviation of the model parameter we need to specify our state space of interest. For this discussion it will be assumed that this is the physiological range of each parameter. Therefore, only one bound on physiology is required as the mean was specified as the mid-point of this range. To calculate this we make use of equation~\ref{eqn: GeneralCalc}and we determine $\theta_{m}(0)$ and $U_{m}(0)$.Further, we specify that \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+U_{m}(0) &= min(g(v_{m,k})). \end{align} For this study it is known that this minimum is zero; therefore \begin{align}
+v_{m,min} &= 0. \end{align} 
+
+With this result the variance of $v_{m,0}$ is given by \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+P_{v_{m}v_{m},0} = (\overline{v}_{m,0} -0)^2. \end{align} It is further assumed that initially there is no relationship between the slow states. Therefore a covariance matrix can be defined
+\[ P_{vv,0} = \left[ \begin{array}[pos]{cccc}
+P_{v_{po}v_{po},0} &  0  & 0 & 0\\
+0  &  P_{v_{p1}v_{p1},0} & 0 & 0\\
+0 & 0 & P_{v_{p2}v_{p2},0} & 0\\
+0  &   0  &0 & P_{v_{p3}v_{p3},0} \end{array} \right] .\] 
+%
+Next the intialisation of the slow states representing the derivatives of the membrane potentials ($z_{m,0}$) is considered. Since the dynamics of the model are represented by summations and subtractions of structures with similar dynamics it will be assumed that \begin{align}
+z_{m,min} &= -z_{m,max}\\
+\overline{z}_{m,0} = 0. \end{align} However, the calculation of $z_{m,max}$ is non-trivial. Firstly, lets consider the original model \begin{align}
+v_{m}(t) &= \theta_{m}(t)h_{m}(t)*g(v(t))\\
+\label{eqn: Kernel1} 
+h_{m}(t) &= \frac{1}{\tau_{m}}texp\left(-\frac{t}{\tau_{m}}\right). \end{align} Where we treat $g(v(t))$ as constant. Further, \begin{align}
+z_{m}(t) &=\frac{\mathrm{d}}{\mathrm{d}t}v_{m}(t) \\
+z_{m}(t) &= \frac{\mathrm{d}}{\mathrm{d}t}\left(\theta_{m}(t)h_{m}(t)*g(v(t))\right)\\
+z_{m}(t) &= \frac{\mathrm{d}}{\mathrm{d}t}\left(h_{m}(t)\right)*\theta_{m}(t)g(v(t)).\end{align} The derivative of $h_{m}(t)$ is given by \begin{align}%%%%%%%%%%%%%%%%%%%%%%%
+\frac{\mathrm{d}}{\mathrm{d}t}\left(h_{m}(t)\right) &= \frac{\mathrm{d}}{\mathrm{d}t}\left(\frac{1}{\tau_{m}}texp\left(-\frac{t}{\tau_{m}}\right)\right)\\
+&= \frac{1}{\tau_{m}}exp\left(-\frac{t}{\tau_{m}}\right) - \frac{1}{\tau^2_{m}}texp\left(-\frac{t}{\tau_{m}}\right)\\
+&= \frac{1}{\tau_{m}}exp\left(-\frac{t}{\tau_{m}}\right)(1-\frac{t}{\tau_{m}}).
+%Z_{m}(s) &=   \frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right) -\frac{\theta_{m}(s)U_{m}(s)}{\tau_{m}}\left(\frac{1}{s+\frac{1}{\tau_{m}}}\right)^2\\
+%\label{eqn: derivativeS}
+%Z_{m}(0) &=   \frac{\theta_{m}(0)U_{m}(0)}{\tau_{m}}\left(\frac{1}{\frac{1}{\tau_{m}}}\right) -\frac{\theta_{m}(0)U_{m}(0)}{\tau_{m}}\left(\frac{1}{\frac{1}{\tau_{m}}}\right)^2.
+ \end{align} Where $\theta_{m}(0)$ and $U_{m}(0)$ are defined as \begin{align}
+\theta_{m}(0)= \theta{m,max}\\
+U_{m}(0) = g_{max}. \end{align} Further, it is known that the time where the maximum derivtive occurs can be found by setting the second derivative to zero and solving for $t$ \begin{align}
+z_{m}(t) &= \frac{\mathrm{d}}{\mathrm{d}t}\left(h_{m}(t)\right)*\theta_{m}(t)g(v(t))\\
+\frac{\mathrm{d}}{\mathrm{d}t}(z_{m}(t)) & = \frac{\mathrm{d}}{\mathrm{d}t^2}\left(h_{m}(t)\right)*\theta_{m}(t)g(v(t))\\
+\frac{\mathrm{d}}{\mathrm{d}t^2}\left(h_{m}(t)\right) &= \frac{\mathrm{d}}{\mathrm{d}t}\left(\frac{1}{\tau_{m}}exp\left(-\frac{t}{\tau_{m}}\right) - \frac{1}{\tau^2_{m}}texp\left(-\frac{t}{\tau_{m}}\right)\right)\\
+&= -\frac{1}{\tau^2_{m}}exp\left(-\frac{t}{\tau_{m}}\right)-\left(\frac{1}{\tau^2_{m}}exp\left(-\frac{t}{\tau_{m}}\right) - \frac{1}{\tau^3_{m}}texp\left(-\frac{t}{\tau_{m}}\right)\right)\\
+&=  -\frac{1}{\tau^2_{m}}exp\left(-\frac{t}{\tau_{m}}\right)\left(2-\frac{t}{\tau_{m}}\right)\\
+\frac{\mathrm{d}}{\mathrm{d}t^2}\left(h_{m}(t)\right) &=0\\
+0 &= -\frac{1}{\tau^2_{m}}exp\left(-\frac{t}{\tau_{m}}\right)\left(2-\frac{t}{\tau_{m}}\right)\\
+t &= 2\tau_{m}\\
+h_{m}(2\tau_{m}) &= \frac{1}{\tau_{m}}exp(-2) - \frac{2}{\tau_{m}}exp(-2)\\
+&= -\frac{1}{\tau_{m}}exp(-2)\\
+z_{m}(2\tau_{m}) &= -\frac{1}{\tau_{m}}exp(-2)\theta_{m,max}g_{max}n_{m}.
+\end{align}. Therefore, $z_{m}(2\tau_{m})$ is the expected maximum derivative for the system. Using this results it is possible to complete the fast state covariance matrix and mean vector. 
+Firstly, this result is used to determine the variance of $z_{m,0}$ and is given by \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+P_{z_{m}z_{m},0} = (0 -z_{m}(2\tau_{m}))^2. \end{align} It is further assumed that initially the derivatives of the fast states are independent. Therefore, a covariance matrix can be defined
+\[ P_{zz,0} = \left[ \begin{array}[pos]{cccc}
+P_{z_{po}z_{po},0} &  0  & 0 & 0\\
+0  &  P_{z_{p1}z_{p1},0} & 0 & 0\\
+0 & 0 & P_{z_{p2}z_{p2},0} & 0\\
+0  &   0  &0 & P_{z_{p3}z_{p3},0} \end{array} \right] .\] 
+Using this result a fast state covariance matrix can be defined as
+\[ P_{xx,0} = \left[ \begin{array}[pos]{cc}
+P_{vv,0} &  \mathbf{0} \\
+\mathbf{0} & P_{zz,0} \end{array} \right] .\] Where the $\mathbf{0}$ here are zero matrices.
+
+Next the assignment of the mean and covariance of the slow states is considered. For this calculation it is again assumed tht are states are equally likely. The range of these slow states is infinite; however, their is a physiological bound on their values described in the original description of the model~\citep{wendling2002epileptic}. These bounds will be used, note that these bounds are used in the calculation of the fast states and are defined as $\theta_{m,max}$ and $\theta_{m,min}$. The mean and covariance of the slow states is defined by \begin{align}
+\overline{\theta}_{m,0} = \frac{\theta_{m,max}+\theta_{m,min}}{2}\\
+P_{\theta\theta,0} = (\overline{\theta}_{m,0}-\theta_{m,min})^2.
+\end{align}
+
+%Combining this result with equation~\ref{eqn: derivativeS} results in the following expression for the maximum of the derivative \begin{align} %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Z_{m}(0) &=   \frac{\theta{m,max}g_{max}}{\tau_{m}}\left(\frac{1}{\frac{1}{\tau_{m}}}\right) -\frac{\theta{m,max}g_{max}}{\tau_{m}}\left(\frac{1}{\frac{1}{\tau_{m}}}\right)^2\\
+% &= \theta{m,max}g_{max} - \theta{m,max}g_{max}\tau_{m}\\
+% &= \theta{m,max}g_{max}(1-\tau_{m}). \end{align}
+
+\red{Intialisation of UKF for varying parameters}
+Secondly, estimation of varying slow states required the addition of the trivial dynamics described in equation~\ref{eqn: parameterdynamics}. It is assumed that the uncertianty of the model error and slow state dynamics are additive.
+
+\red{Estimation of model input mean}
+Lastly, estimation of the stochastic inputs mean to the neural mass is considered. In order to achieve this it is assumed that the model input mean can be assumed to be varying slowly, similarly to the model's slow states. By doing so the input mean can be augmented to the state matrix and assigned trivial dynamics. 
+
+\red{UKF estimation bounds and initialsation of states}
+When performing estimation, the results on the model's slow states are bounded by their physiological range as specified by \cite{wendling2002epileptic}. Further, the initial estimate of the model states is described as a Gaussian with the mean specified as the midpoint of the states range and the standard deviation set such that 99.9\% of realisations are within the specified physiolgical range of the specific state. 
+
+\red{Robustness test}
+To determine how robust the estimation procedure is the effect of noise and varying initialisations of the model states are considered. Further, the ability of the estimation procedure to estimate varying slow states, with different rates of change is determined. 
+
+
+
+
+
+%The estimation method used was originally described by Kalman, and later developed by Ulah for nonlinear parameter estimation.
+%
+%The method developed by Ulah makes use of two structures, and unscented transform to allow the nonlinearity of the model to be retained and the kalman update process to update the states and parameters based on observations.
+%
+%To allow for parameter estimation the parameters of interest are considered to be slow states. That being they vary slowly compared to the model states.
+%
+%These states are therefore augmented to the normal state matrix.
+%
+%The unscented transform is described by the following set of equations.
+%
+%The variable describes the standard deviation of the parameter.
+%
+%The square root function is a matrix square root, which is achieved using the cholesky matrix decomposition.
+%
+%The resultant covariance and mean and then described using the following set of equations.
+%
+%Note that similar to the unscented transform there are weights assigned to particular iterations of the unscented process. This allows the process to specify more or less weight on the propogation of the mean through the model.
+%
+%Once the covariances and means are determined the model states are updated using the standard kalman filter correction step. 
+%
+%The equations for the kalman update process are.
+%
+%Here the variable describes the expected observation noise, and variable y the uncertainty in the model.
+%
+%Here the observation is the output of the simulated signal.
+%
+%This uncertainty in the model is used to account for errors induced due to model assumptions.
+%
+%To determine the accuracy of the estimation process the normalised mean square error of the parameter and state estimates are determined.
+%
+%This estimation procedure is dependant on the original guess for the model parameters and states.
+%
+%To make the distance between the actual and initial guess of the state estimates the initial guess is set to the middle of the physiological range specified for each parameter. Standard deviation set to encompass the entire physiological range.
+%
+%A similar process is done for state guess and standard deviation, equations are...
+%
+%Model uncertianty is set low. And increased when parameters vary within a single simulation. This allows the parameters to track as their standard deviation decreases over periods when the model tracks well and if uncertainty is low these parameters will not be able to track the actual values precise;y.
+%
+%To determine the accuracy of the estimation procedure, the initial parameter guess is altered based on percentage from the actual.
+%
+%Observation noise is increased to determine limits on noise allowable for the model.
+%
+%Model parameters simulated are altered to determine the effect of the parameters on estimation.
+%
+%Model parameters are varied within single simulation to determine whether the estimaton procedure can track the varying parameters.
+%
+%
+% Following this the simulations from the extended neural mass model will be presented.
+%line
+%
+%
